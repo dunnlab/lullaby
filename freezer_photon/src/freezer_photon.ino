@@ -8,6 +8,9 @@
 // This #include statement was automatically added by the Spark IDE.
 #include "spark-dallas-temperature.h"
 
+
+#include <blynk.h> 
+
 // -----------------
 // Read temperature
 // -----------------

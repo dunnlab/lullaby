@@ -1,1 +1,3 @@
 .DS_Store
+freezer_photon/src/TOKENS.h
+*.bin

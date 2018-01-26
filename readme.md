@@ -26,6 +26,24 @@ The intent is for each piece of equipment to have one photon, and for the code
 on all the photons to be the same. Each of the three sensors above is optional,
 and the monitor will function fine when only a subset of devices are attached.
 
+## Getting set up
+
+### Setting token values
+
+Tokens are not committed to github. To use this sketch, you need to create a
+file `freezer_photon/src/TOKENS.h` with the following contents:
+
+    /*
+    AUTH_TOKEN.h
+
+    Store private tokens in AUTH_TOKEN.h and add that
+    file to .gitignore so personal data is not shared
+
+    */
+
+    #define BLYNK_AUTH_TOKEN "store-real-token-here"
+
+Where `store-real-token-here` is your blynk token.
 
 ## Getting the photon MAC address
 
