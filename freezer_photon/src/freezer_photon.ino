@@ -9,7 +9,12 @@
 #include "spark-dallas-temperature.h"
 
 
-#include <blynk.h> 
+#include <blynk.h>
+#include "TOKENS.h"
+
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+char auth[] = BLYNK_AUTH_TOKEN;
 
 // -----------------
 // Read temperature
@@ -31,10 +36,17 @@ int alarm_nc_pin = D1;
 int alarm_no_pin = D2;
 bool alarm = FALSE;
 
+WidgetLED alarm_led(V6);
+
+
 #include <math.h>
 
 void setup()
 {
+
+  Blynk.begin(auth);
+  Blynk.setProperty(V6, "color", "#D3435C");
+
   // Register a Particle Core variable here
   Particle.variable("temperature", &temperature, DOUBLE);
   Particle.variable("alarm", &alarm, BOOLEAN);
@@ -52,7 +64,7 @@ void setup()
 
 void loop()
 {
-
+  Blynk.run();
 
   // Check the alarm
   if( (digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW) )
@@ -94,6 +106,16 @@ void loop()
   // Publish
   Particle.publish("temperature", String(tempC));
   Particle.publish("alarm", String(alarm));
+
+  Blynk.virtualWrite(V5, tempC);
+  if ( alarm ){
+    alarm_led.on();
+  }
+  else
+  {
+    alarm_led.off();
+  }
+  //Blynk.virtualWrite(V6, alarm);
 
   delay(5000);
 
