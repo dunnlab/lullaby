@@ -40,15 +40,18 @@ void setup()
   pinMode (alarm_nc_pin, INPUT_PULLUP);
 
   // setup the library
+  // dallas.setResolution(9);
   dallas.begin();
 
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
 }
 
 void loop()
 {
 
+
+  // Check the alarm
   if( (digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW) )
   {
     alarm = TRUE;
@@ -61,7 +64,20 @@ void loop()
   // Request temperature conversion (traditional)
   dallas.requestTemperatures();
 
-  sin( 23423 );
+  // sin( 23423 );
+  // delay(1000);
+
+  // Check the probe status
+  //DeviceAddress deviceAddress;
+  //if ( dallas.getAddress(deviceAddress, 0) )
+  //{
+  //  Particle.publish("DS18B20_status","connected");
+  //  Particle.publish("raw_temp",String(dallas.getTemp(deviceAddress)));
+  //}
+  //else
+  //{
+  //  Particle.publish("DS18B20_status","disconnected");
+  //}
 
   // get the temperature in Celcius
   float tempC = dallas.getTempCByIndex(0);

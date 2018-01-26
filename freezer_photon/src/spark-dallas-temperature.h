@@ -63,7 +63,8 @@
 // Error Codes
 #define DEVICE_DISCONNECTED_C -127
 #define DEVICE_DISCONNECTED_F -196.6
-#define DEVICE_DISCONNECTED_RAW -2032
+// #define DEVICE_DISCONNECTED_RAW -2032
+#define DEVICE_DISCONNECTED_RAW -4000
 
 typedef uint8_t DeviceAddress[8];
 
