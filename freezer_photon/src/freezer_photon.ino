@@ -8,13 +8,9 @@
 // This #include statement was automatically added by the Spark IDE.
 #include "spark-dallas-temperature.h"
 
-
-#include <blynk.h>
 #include "TOKENS.h"
 
-// You should get Auth Token in the Blynk App.
-// Go to the Project Settings (nut icon).
-char auth[] = BLYNK_AUTH_TOKEN;
+#include <math.h>
 
 // -----------------
 // Read temperature
@@ -26,7 +22,6 @@ OneWire oneWire(D0);
 
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature dallas(&oneWire);
-
 int onewire_device_count = 0;
 
 // Create a variable that will store the temperature value
@@ -38,16 +33,9 @@ int alarm_nc_pin = D1;
 int alarm_no_pin = D2;
 bool alarm = FALSE;
 
-WidgetLED alarm_led(V6);
-
-
-#include <math.h>
 
 void setup()
 {
-
-  Blynk.begin(auth);
-  Blynk.setProperty(V6, "color", "#D3435C");
 
   // Register a Particle Core variable here
   Particle.variable("temperature", &temperature, DOUBLE);
@@ -62,18 +50,17 @@ void setup()
 
   onewire_device_count = dallas.getDeviceCount();
   Particle.publish("onewire_device_count", String(onewire_device_count));
-  // Serial.begin(9600);
 
 }
 
 void loop()
 {
-  Blynk.run();
 
   // Check the alarm
   if( (digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW) )
   {
     alarm = TRUE;
+    Particle.publish("alarm", String(alarm));
   }
   else
   {
@@ -87,23 +74,16 @@ void loop()
     DeviceAddress deviceAddress;
     if ( !dallas.getAddress( deviceAddress, i ) )
     {
-        Particle.publish("warning", "address not valid");
+        Particle.publish("Warning", "address not valid");
     }
     char rom_address [16];
     sprintf(&rom_address[0], "%02X%02X%02X%02X%02X%02X%02X%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
-    // sprintf(&output1[0], "%x", deviceAddress1);
-    // Particle.publish("address", String(rom_address));
 
     float tempC = dallas.getTempCByIndex(i);
     // convert to double
     temperature = (double)tempC;
 
-    // Print out
-    Serial.print( "Temp in C = ");
-    Serial.print( tempC );
-
     if (tempC > -127.0 ){
-      Blynk.virtualWrite(V5, tempC);
       Particle.publish("Temperature_"+ String(rom_address), String(tempC));
     }
     else
@@ -112,20 +92,6 @@ void loop()
     }
 
   }
-
-
-  // Publish
-  Particle.publish("alarm", String(alarm));
-
-
-  if ( alarm ){
-    alarm_led.on();
-  }
-  else
-  {
-    alarm_led.off();
-  }
-  //Blynk.virtualWrite(V6, alarm);
 
   delay(5000);
 
