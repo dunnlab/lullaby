@@ -60,22 +60,24 @@ void loop()
   if( (digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW) )
   {
     alarm = TRUE;
-    Particle.publish("alarm", String(alarm));
   }
   else
   {
     alarm = FALSE;
   }
+  Particle.publish("alarm", String(alarm));
 
-  // Request temperature conversion (traditional)
+  // Loop thorugh the temperature sensors and publish data from each
   dallas.requestTemperatures();
 
   for( int i = 0; i < onewire_device_count; i++ ) {
     DeviceAddress deviceAddress;
+
     if ( !dallas.getAddress( deviceAddress, i ) )
     {
         Particle.publish("Warning", "address not valid");
     }
+
     char rom_address [16];
     sprintf(&rom_address[0], "%02X%02X%02X%02X%02X%02X%02X%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
 

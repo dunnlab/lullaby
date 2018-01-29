@@ -1,8 +1,10 @@
-# Freezer Monitor
+# lulLABy
+
+The lab monitoring platform that lets you rest easy.
 
 *This project is a work in progress, and is probably broken*
 
-Custom freezer monitor from the [Dunn Lab](http://dunnlab.org).
+Custom lab equipment monitor from the [Dunn Lab](http://dunnlab.org).
 
 This project is built around
 [Particle Photon](https://www.particle.io/products/hardware/photon-wifi-dev-kit)
@@ -28,24 +30,9 @@ and the monitor will function fine when only a subset of devices are attached.
 
 ## Getting set up
 
-### Setting token values
+### Particle monitor boards
 
-Tokens are not committed to github. To use this sketch, you need to create a
-file `freezer_photon/src/TOKENS.h` with the following contents:
-
-    /*
-    AUTH_TOKEN.h
-
-    Store private tokens in AUTH_TOKEN.h and add that
-    file to .gitignore so personal data is not shared
-
-    */
-
-    #define BLYNK_AUTH_TOKEN "store-real-token-here"
-
-Where `store-real-token-here` is your blynk token.
-
-## Getting the photon MAC address
+#### Getting the photon MAC address
 
 Some institutions require that you register the MAC address of any headless
 device that you connect to the wireless network. To get the MAC address of a
@@ -66,6 +53,34 @@ the above command
 At Yale, you would then register the MAC address at https://regvm2.its.yale.edu,
 wait a few minutes for it to propagate, and then configure the Photon to connect
 to the `yale wireless` SSID.
+
+### Server
+
+The server is run in a docker container, which can be run locally or on a cloud
+service like an Amazon EC2 instance.
+
+Build the docker file in the `docker/` directory of this repository as
+described in my Docker
+[cheat sheet](https://gist.github.com/caseywdunn/34aac3d1993f9b3340496e9294239d3d).
+
+Then run it is follows:
+
+    docker run -d \
+      -e PARTICLE_ACCESS_TOKEN='access_token' \
+      -e SLACK_WEBHOOK_URL='slack_webhook_url' \
+      image
+
+Where:
+
+- `access_token` is the particle access token, available from the particle console
+
+- `slack_webhook_url` is the webhook url from the slack integration
+
+- `image` is the id of the image you build
+
+
+## Running the monitor
+
 
 ## References
 
