@@ -43,6 +43,8 @@ https://docs.particle.io/guide/getting-started/connect/photon/
 
 - Plug the Photon into your computer via USB
 
+- Put the Photon in [listening mode](https://docs.particle.io/guide/getting-started/modes/photon/#listening-mode)
+
 - Run `ls /dev/cu.usb*`
 
 - Run `screen /dev/cu.usbmodem1111` where `cu.usb*` is the path you got from
