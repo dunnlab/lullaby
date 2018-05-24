@@ -1,35 +1,41 @@
 # freezer_photon
 
-A Particle project named freezer_photon
+A Freezer Monitoring photon
 
-## Welcome to your project!
+## Overview
+Please read the parent readme first.
 
-Every new Particle project is composed of 3 important elements that you'll see have been created in your project directory for freezer_photon.
+### Flashing
+The photon you have set up needs to be flashed with the firmware stored in the `freezer_photon/src` directory in this repo. You can either use the [CLI](https://docs.particle.io/guide/tools-and-features/cli/photon/) or the [Desktop IDE](https://docs.particle.io/guide/tools-and-features/dev/).
 
-#### ```/src``` folder:  
-This is the source folder that contains the firmware files for your project. It should *not* be renamed.
-Anything that is in this folder when you compile your project will be sent to our compile service and compiled into a firmware binary for the Particle device that you have targeted.
+For example, if you have a registered photon named "`dunnlab_1`", you could use the CLI to flash it with:
 
-If your application contains multiple files, they should all be included in the `src` folder. If your firmware depends on Particle libraries, those dependencies are specified in the `project.properties` file referenced below.
+```shell
+cd src
+particle flash dunnlab_1
+```
 
-#### ```.ino``` file:
-This file is the firmware that will run as the primary application on your Particle device. It contains a `setup()` and `loop()` function, and can be written in Wiring or C/C++. For more information about using the Particle firmware API to create firmware for your Particle device, refer to the [Firmware Reference](https://docs.particle.io/reference/firmware/) section of the Particle documentation.
+### Running
+The code expects you to have OneWire compatible sensors you'd like to monitor on `D0`, and a freezer alarm on `D1` and `D2`.
 
-#### ```project.properties``` file:  
-This is the file that specifies the name and version number of the libraries that your project depends on. Dependencies are added automatically to your `project.properties` file when you add a library to a project using the `particle library add` command in the CLI or add a library in the Desktop IDE.
+There are 4 registered variables (with `Particle.variable`) that you can `GET` with the particle API:
 
-## Adding additional files to your project
 
-#### Projects with multiple sources
-If you would like add additional files to your application, they should be added to the `/src` folder. All files in the `/src` folder will be sent to the Particle Cloud to produce a compiled binary.
+| Name           | Description                                                            | Type    | Example                                         |
+|----------------|------------------------------------------------------------------------|---------|-------------------------------------------------|
+| `temperatures` | comma-separated list of temperatures, to 2 decimal places              | String  | nan,23.62,24.94                                 |
+| `sensor_ids`   | comma-separated list of Sensor Addresses, same order as `temperatures` | String  | 2898458F090000F,28EC2663090000B,2815018E0900002 |
+| `sensor_count` | number of sensors being monitored                                      | int32   | 4                                               |
+| `alarm`        | Whether or not the Freezer is throwing an alarm fit                    | boolean | true     
 
-#### Projects with external libraries
-If your project includes a library that has not been registered in the Particle libraries system, you should create a new folder named `/lib/<libraryname>/src` under `/<project dir>` and add the `.h` and `.cpp` files for your library there. All contents of the `/lib` folder and subfolders will also be sent to the Cloud for compilation.
+There are and 6 events can be pushed from the photon with `Particle.publish`: 
 
-## Compiling your project
+| Name           | Published when                                 | Type   | Example                                         |
+|----------------|------------------------------------------------|--------|-------------------------------------------------|
+| `temperatures` | Once per loop, same as `temperatures` variable | String | nan,23.62,24.94                                 |
+| `sensor_ids`   | Once per loop, same as `sensor_ids` variable   | String | 2898458F090000F,28EC2663090000B,2815018E0900002 |
+| `heart_beat`   | Once per loop to let you know it's still alive | Null   | null                                            |
+| `alarm`        | Alarm variable is true                         | String | Freezer offline or out of temperature range!    |
+| `disconnect`   | If a sensor is disconnected                    | String | 2898458F090000F                                 |
+| `warn`         | If a warning is generated                      | String | No sensors detected!                            |
 
-When you're ready to compile your project, make sure you have the correct Particle device target selected and run `particle compile <platform>` in the CLI or click the Compile button in the Desktop IDE. The following files in your project folder will be sent to the compile service:
-
-- Everything in the `/src` folder, including your `.ino` application file
-- The `project.properties` file for your project
-- Any libraries stored under `lib/<libraryname>/src`

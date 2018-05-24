@@ -10,13 +10,14 @@
 #define DISCON_TEMP -127.0
 // temps output can be 123.46 or 12.34
 #define FLOAT_MAX_LEN 6
+#define SENSOR_ADDRESS_LEN 8
 #define SENSOR_ID_LEN 16
 // published variable STRING (maximum string length is 622 bytes)
 #define MAX_PARTICLE_STR_LEN 622
 #define PUBLISH_TTL 60 // default time to live
 
 //need null terminator, separator for each sensor
-const unsigned int max_sensors = (MAX_PARTICLE_STR_LEN)/(SENSOR_ID_LEN+1);
+const int max_sensors = (MAX_PARTICLE_STR_LEN)/(SENSOR_ID_LEN+1);
 
 // string out formats
 const char* temp_fmt = ",%.2f";
@@ -28,13 +29,15 @@ const char* addr_fmt = "%02X";
 // Data wire is plugged into port 0 on the Arduino
 // Setup a oneWire instance to communicate with any OneWire devices
 // (not just Maxim/Dallas temperature ICs)
-OneWire oneWire(D0);
-unsigned int onewire_device_count = 0;
+OneWire one_wire(D0);
+int sensor_count = 0;
 // Pass our oneWire reference to Dallas Temperature.
-DallasTemperature dallas(&oneWire);
+DallasTemperature dallas(&one_wire);
 
+// array of sensor addresses
+uint8_t sensor_address_array[max_sensors][SENSOR_ADDRESS_LEN];
 // sensor id array, each is SENSOR_ID_LEN chars wide
-char** sensor_id_array = new char* [max_sensors];
+char sensor_id_array[max_sensors][SENSOR_ID_LEN];
 // temperature array
 float temperature_array[max_sensors];
 // for "serialized" results
@@ -45,113 +48,111 @@ char temperatures[MAX_PARTICLE_STR_LEN];
 // common is ground
 uint8_t alarm_nc_pin = D1;
 uint8_t alarm_no_pin = D2;
-bool alarm = FALSE;
+bool alarm = FALSE; // easier to send to particle API
+bool over_max_sensors = FALSE;
 
 template <class T>
-size_t join_array(T arr_to_join, size_t arr_len, char *buffer,
-                  size_t buffer_len, const char *fmt, const char *fmt_ns);
+int join_array(T arr_to_join, int arr_len, char *buffer,
+                  int buffer_len, const char *fmt, const char *fmt_ns);
 
-void setup()
-{
-
+void setup() {
   pinMode (alarm_no_pin, INPUT_PULLUP);
   pinMode (alarm_nc_pin, INPUT_PULLUP);
   dallas.begin();
-  onewire_device_count = dallas.getDeviceCount();
-  if (onewire_device_count > max_sensors)
-  for (size_t i = 0; i < max_sensors; i++) {
-    sensor_id_array[i] = new char[SENSOR_ID_LEN];
+
+  // Get sensor addresses, store them and their strings
+  one_wire.reset_search();
+  while (one_wire.search(sensor_address_array[sensor_count])) {
+    if (dallas.validAddress(sensor_address_array[sensor_count])) {
+      temperature_array[sensor_count] = nanf("");
+      join_array<>(sensor_address_array[sensor_count], SENSOR_ADDRESS_LEN,
+                   sensor_id_array[sensor_count], SENSOR_ID_LEN, addr_fmt, addr_fmt);
+      sensor_count++;
+    }
+    if (sensor_count == max_sensors){
+      break;
+    }
   }
 
-  // strings for storing serialized arrays
-  for( size_t i = 0; i < onewire_device_count; i++ ) {
-    // nan temperature_array to start
-    temperature_array[i] = nanf("");
-
-    DeviceAddress deviceAddress;
-    join_array<>(deviceAddress, 8, sensor_id_array[i],
-                 SENSOR_ID_LEN, addr_fmt, addr_fmt);
+  // test if we have more than allowed sensors attached
+  if (sensor_count < dallas.getDeviceCount()){
+    over_max_sensors = TRUE;
   }
-  join_array<>(temperature_array, onewire_device_count,
-               temperatures, FLOAT_MAX_LEN, temp_fmt, temp_fmt_ns);
-  join_array<>(sensor_id_array, onewire_device_count,
-               sensor_ids, SENSOR_ID_LEN, id_fmt, id_fmt_ns);
+  join_array(temperature_array, sensor_count,
+               temperatures, MAX_PARTICLE_STR_LEN, temp_fmt, temp_fmt_ns);
+  join_array(sensor_id_array, sensor_count,
+               sensor_ids, MAX_PARTICLE_STR_LEN, id_fmt, id_fmt_ns);
 
   // Register Particle variables
   Particle.variable("temperatures", temperatures);
   Particle.variable("sensor_ids", sensor_ids);
-  Particle.publish("sensor_ids", PRIVATE);
+  Particle.variable("sensor_count", sensor_count);
   Particle.variable("alarm", alarm);
-  Particle.variable("sensor_count", onewire_device_count);
-  Particle.publish("sensor_count", PRIVATE);
 }
 
-void loop()
-{
-
-  // Check the alarm
-  if( (digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW) )
-  {
-    alarm = TRUE;
-  }
-  else
-  {
-    alarm = FALSE;
-  }
-  Particle.publish("alarm", String(alarm), PRIVATE);
-
-  // Loop thorugh the temperature sensors and publish data from each
-  dallas.requestTemperatures();
-
-  for (size_t i = 0; i < onewire_device_count; i++ ) {
-    DeviceAddress deviceAddress;
-
-    if ( !dallas.getAddress( deviceAddress, i ) )
-    {
-        Particle.publish("bad_address", sensor_id_array[i],
-                         PRIVATE);
-        temperature_array[i] = nanf("");
+void loop() {
+  // I'm alive!
+  Particle.publish("heart_beat", NULL, PUBLISH_TTL, PRIVATE);
+  if (sensor_count > 1) {
+    // Check the alarm
+    if((digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW)) {
+      alarm = TRUE;
+      Particle.publish("alarm", "Freezer offline or out of temperature range!",
+                       PUBLISH_TTL, PRIVATE);
+    } else {
+      alarm = FALSE;
     }
 
-    temperature_array[i] = dallas.getTempCByIndex(i);
-
-    if (temperature_array[i] > DISCON_TEMP ){
-      Particle.publish("temp_iter",  temperature_array[i], PRIVATE); // will take out later
-    }
-    else {
-      Particle.publish("disconnected", sensor_id_array[i], PRIVATE);
-      temperature_array[i] = nanf("");
+    if (over_max_sensors) {
+      Particle.publish("warn", "Too many sensors!", PUBLISH_TTL, PRIVATE);
     }
 
+    // Loop thorugh the temperature sensors and publish data from each
+    for (int i = 0; i < sensor_count; i++ ) {
+      if (!dallas.requestTemperaturesByAddress(sensor_address_array[i])) {
+          Particle.publish("disconnect", sensor_id_array[i], PUBLISH_TTL, PRIVATE);
+          temperature_array[i] = nanf("");
+      } else {
+      // read temp with current address
+      temperature_array[i] = dallas.getTempC(sensor_address_array[i]);
+        if (temperature_array[i] <= DISCON_TEMP) {
+          temperature_array[i] = nanf("");
+        }
+      }
+    }
+    join_array(temperature_array, sensor_count,
+                 temperatures, MAX_PARTICLE_STR_LEN,
+                 temp_fmt, temp_fmt_ns);
+    Particle.publish("temperatures",  temperatures, PUBLISH_TTL, PRIVATE);
+    Particle.publish("sensor_ids",  sensor_ids, PUBLISH_TTL, PRIVATE);
+  } else {
+    Particle.publish("warn", "No sensors detected!", PUBLISH_TTL, PRIVATE);
   }
-  temperatures = join_array<>(temperature_array, onewire_device_count,
-                              temperatures, FLOAT_MAX_LEN,
-                              temp_fmt, temp_fmt_ns);
   delay(5000);
-
 }
 
 template <class T>
-size_t join_array(T arr_to_join, size_t arr_len, char *buffer,
-                  size_t buffer_len, const char *fmt, const char *fmt_ns) {
+int join_array(T arr_to_join, int arr_len, char *buffer,
+                  int buffer_len, const char *fmt, const char *fmt_ns) {
     /*
     Function Parameters
     float *arr_to_join: The array to join
-    size_t arr_len: the length of the array
+    int arr_len: the length of the array
     char *buffer: buffer to write joined array to
-    size_t buffer_len: length of the buffer
+    int buffer_len: length of the buffer
     const char *fmt: format string with leading separator if you want
     const char *fmt_ns: format string without trailing separator
 
     Returns the number of chars written (sum of returns from snprintf)
     */
     unsigned int written = 0;
-    for(size_t i = 0; i < arr_len; i++) {
+    for(int i = 0; i < arr_len; i++) {
         written += snprintf(buffer + written, buffer_len - written,
                             (i != 0 ? fmt : fmt_ns),
                             arr_to_join[i]);
-        if(written == buffer_len)
+        if(written == buffer_len) {
             break;
+        }
     }
     return written;
 }
