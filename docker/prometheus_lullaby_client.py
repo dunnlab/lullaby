@@ -16,19 +16,19 @@ api_info['device_id'] = '300037001247343438323536' # dev proton, hardcoded for n
 api_info['device_url'] = '{api_url}/{version}/devices/{device_id}'.format(**api_info)
 
 temps_url = '{device_url}/temperatures?access_token={api_key}'.format(**api_info)
-sensor_ids_url = '{device_url}/sensors?access_token={api_key}'.format(**api_info)
+sensor_ids_url = '{device_url}/sensor_ids?access_token={api_key}'.format(**api_info)
 
 class TempCollector(object):
-    def collect(self)
+    def collect(self):
         #code here
-        metric = GaugeMetricFamily('temperature_c', 'Temperature reported by photon', labels=sensor_ids)
+        metric = GaugeMetricFamily('temperature_c', 'Temperature reported by photon', labels="sensor_id")
         sensor_ids_now = json.load(urlopen(sensor_ids_url))
         temps_now = json.load(urlopen(temps_url))
-        sensors_now_dict = zip(sensors_ids_now['result'].split(','),
-                           temps_now['result'].split(','))
+        sensors_now_dict = dict(zip(sensor_ids_now['result'].split(','),
+                           [float(x) for x in temps_now['result'].split(',')]))
 
         for sensor_now in sensors_now_dict.keys():
-            metric.add_metric(sensor_now, sensors_now_dict[sensor_now])
+            metric.add_metric([sensor_now], sensors_now_dict[sensor_now])
 
         yield metric
 
