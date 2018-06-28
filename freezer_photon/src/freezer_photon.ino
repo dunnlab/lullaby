@@ -91,8 +91,6 @@ void setup() {
 }
 
 void loop() {
-  // I'm alive!
-  Particle.publish("heart_beat", NULL, PUBLISH_TTL, PRIVATE);
   if (sensor_count > 1) {
     // Check the alarm
     if((digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW)) {
