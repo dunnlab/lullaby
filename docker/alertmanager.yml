@@ -1,0 +1,24 @@
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 1m
+  repeat_interval: 1h 
+
+  # A default receiver
+  receiver: slack_devnull
+
+inhibit_rules:
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal: ['alertname', 'cluster', 'service']
+
+receivers:
+- name: slack_devnull
+  slack_configs:
+  - api_url: $WEBHOOK_URL
+    send_resolved: true
+    channel: '#dev_null'
+    icon_emoji: ':warning:'
+    username: 'LulLaby'
