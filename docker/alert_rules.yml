@@ -14,8 +14,8 @@ groups:
 
   # Alert for any instance that has a median request latency >1s.
   - alert: AmbientTemperatureOutOfRange
-    expr: temperature_c{type="ambient"} > 30 or temperature_c{type="ambient"} < 22
+    expr: temperature_c{type="ambient"} > -22 or temperature_c{type="ambient"} < -30
     for: 1m
     annotations:
       summary: "Ambient temperature out of range on {{ $labels.device_id }}"
-      description: "{{ $labels.device_id }} has a median request latency above 1s (current value: {{ $value }})"
+      description: "{{ $labels.device_id }} out of temperature range for 1 minute (current temperature: {{ $value }} C)"
