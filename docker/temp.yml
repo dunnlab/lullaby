@@ -17,7 +17,7 @@ inhibit_rules:
 receivers:
 - name: slack_devnull
   slack_configs:
-  - api_url: WEBHOOK_URL
+  - api_url: 'http://something.com'
     send_resolved: true
     channel: '#dev_null'
     icon_emoji: ':warning:'
