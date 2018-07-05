@@ -21,4 +21,4 @@ receivers:
     send_resolved: true
     channel: '#dev_null'
     icon_emoji: ':warning:'
-    username: 'LulLaby'
+    username: 'lulLaby'
