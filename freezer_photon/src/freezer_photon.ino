@@ -5,7 +5,6 @@
 #include "OneWire.h"
 #include "spark-dallas-temperature.h"
 #include <math.h>
-//#include "TOKENS.h"
 
 #define DISCON_TEMP -127.0
 // temps output can be 123.46 or 12.34
@@ -91,24 +90,18 @@ void setup() {
 }
 
 void loop() {
+ // Check the alarm
+  if((digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW)) {
+    alarm = TRUE;
+  } else {
+    alarm = FALSE;
+  }
+
+  // Loop thorugh the temperature sensors and publish data from each
   if (sensor_count > 1) {
-    // Check the alarm
-    if((digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW)) {
-      alarm = TRUE;
-      Particle.publish("alarm", "Freezer offline or out of temperature range!",
-                       PUBLISH_TTL, PRIVATE);
-    } else {
-      alarm = FALSE;
-    }
-
-    if (over_max_sensors) {
-      Particle.publish("warn", "Too many sensors!", PUBLISH_TTL, PRIVATE);
-    }
-
-    // Loop thorugh the temperature sensors and publish data from each
+    
     for (int i = 0; i < sensor_count; i++ ) {
       if (!dallas.requestTemperaturesByAddress(sensor_address_array[i])) {
-          Particle.publish("disconnect", sensor_id_array[i], PUBLISH_TTL, PRIVATE);
           temperature_array[i] = nanf("");
       } else {
       // read temp with current address
@@ -121,12 +114,8 @@ void loop() {
     join_array(temperature_array, sensor_count,
                  temperatures, MAX_PARTICLE_STR_LEN,
                  temp_fmt, temp_fmt_ns);
-    Particle.publish("temperatures",  temperatures, PUBLISH_TTL, PRIVATE);
-    Particle.publish("sensor_ids",  sensor_ids, PUBLISH_TTL, PRIVATE);
-  } else {
-    Particle.publish("warn", "No sensors detected!", PUBLISH_TTL, PRIVATE);
   }
-  delay(5000);
+  delay(10000);
 }
 
 template <class T>
