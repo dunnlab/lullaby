@@ -1,5 +1,5 @@
 route:
-  group_by: ['alertname', 'cluster', 'service']
+  group_by: ['alertname', 'job']
   group_wait: 30s
   group_interval: 1m
   repeat_interval: 1h 
@@ -12,7 +12,7 @@ inhibit_rules:
     severity: 'critical'
   target_match:
     severity: 'warning'
-  equal: ['alertname', 'cluster', 'service']
+  equal: ['alertname', 'job']
 
 receivers:
 - name: slack_devnull
@@ -21,4 +21,8 @@ receivers:
     send_resolved: true
     channel: '#dev_null'
     icon_emoji: ':warning:'
-    username: 'lulLaby'
+    username: 'lulLABy'
+    title: '{{ template "custom_title" . }}'
+    text: '{{ template "custom_slack_message" . }}'
+templates:
+- /etc/alertmanager/notifications.tmpl

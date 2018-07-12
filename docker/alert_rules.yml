@@ -4,18 +4,29 @@ groups:
 
   # Alert for any photon that is unreachable for >5 minutes.
   # - alert: PhotonDown
-  #   expr: up == 0
-  #   for: 5m
-  #   labels:
-  #     severity: critical
-  #   annotations:
-  #     summary: "Photon {{ $labels.device_id }} down"
-  #     description: "{{ $labels.device_id }} has been down for more than 5 minutes."
+  #  expr: up == 0
+  #  for: 5m
+  #  labels:
+  #    severity: critical
+  #  annotations:
+  #    summary: "Photon {{ $labels.device_id }} down"
+  #    description: "{{ $labels.device_id }} has been down for more than 5 minutes."
 
-  # Alert for any instance that has a median request latency >1s.
+  # Alert for any temperature sensor labeled ambient that is out of range for 1 minute or more 
   - alert: AmbientTemperatureOutOfRange
     expr: temperature_c{type="ambient"} > -22 or temperature_c{type="ambient"} < -30
     for: 1m
     annotations:
-      summary: "Ambient temperature out of range on {{ $labels.device_id }}"
-      description: "{{ $labels.device_id }} out of temperature range for 1 minute (current temperature: {{ $value }} C)"
+      identifier: "{{ $labels.device_name }}"
+      summary: "Ambient temperature out of range on {{ $labels.device_name }} ({{ $labels.device_id }})"
+      description: "Out of temperature range for > 1 minute (current: {{ $value }} C)"
+
+  - alert: AlarmRelay
+    expr: alarm_relay == 1
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      identifier: "{{ $labels.device_name }}"
+      summary: "Alarm relay firing on {{ $labels.device_name }} ({{ $labels.device_id }})"
+      description: "Relay alarm is firing."

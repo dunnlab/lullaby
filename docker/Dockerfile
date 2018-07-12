@@ -33,11 +33,15 @@ RUN wget https://github.com/prometheus/alertmanager/releases/download/v${env_ale
   cd .. && rm -rf alertmanager-${env_alertmanager_version}.linux-amd64 alertmanager-${env_alertmanager_version}.linux-amd64.tar.gz
 
 COPY prometheus.yml /etc/prometheus/prometheus.yml
-COPY alertmanager.yml /etc/prometheus/alertmanager.yml
+COPY alertmanager.yml /etc/alertmanager/alertmanager.yml
+COPY notifications.tmpl /etc/alertmanager/notifications.tmpl
 COPY alert_rules.yml /etc/prometheus/alert_rules.yml
-COPY prometheus_lullaby_client.py /bin/prometheus_lullaby_client.py
+COPY prometheus_lullaby_exporter.py /bin/prometheus_lullaby_exporter.py
 COPY run_lullaby.sh /bin/run_lullaby.sh
 RUN chmod +x /bin/run_lullaby.sh
 
 EXPOSE 9090
+EXPOSE 9091
+EXPOSE 9093
+EXPOSE 9500
 CMD ["/bin/run_lullaby.sh"]
