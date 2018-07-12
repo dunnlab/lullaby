@@ -10,7 +10,7 @@ from prometheus_client.core import GaugeMetricFamily, REGISTRY
 def try_json_url_open(url):
     result = defaultdict(lambda: "nan")
     try:
-        result = json.load(urlopen(temps_url))
+        result = json.load(urlopen(url))
     except Exception as e:
         logging.warning(e)
     return result
