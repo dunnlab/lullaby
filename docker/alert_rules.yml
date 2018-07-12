@@ -16,6 +16,8 @@ groups:
   - alert: AmbientTemperatureOutOfRange
     expr: temperature_c{type="ambient"} > -22 or temperature_c{type="ambient"} < -30
     for: 1m
+    labels:
+      severity: warning
     annotations:
       identifier: "{{ $labels.device_name }}"
       summary: "Ambient temperature out of range on {{ $labels.device_name }} ({{ $labels.device_id }})"

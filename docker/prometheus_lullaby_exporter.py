@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-
 import os
 import json
 import time
+from collections import defaultdict
 from urllib.request import urlopen
 from prometheus_client import start_http_server
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
