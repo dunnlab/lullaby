@@ -48,15 +48,19 @@ char temperatures[MAX_PARTICLE_STR_LEN];
 uint8_t alarm_nc_pin = D1;
 uint8_t alarm_no_pin = D2;
 bool alarm = FALSE; // easier to send to particle API
-bool over_max_sensors = FALSE;
+
+// D7 is onboard LED, so 2 lights for price one one
+int LED = D7;
+
 
 template <class T>
 int join_array(T arr_to_join, int arr_len, char *buffer,
                   int buffer_len, const char *fmt, const char *fmt_ns);
 
 void setup() {
-  pinMode (alarm_no_pin, INPUT_PULLUP);
-  pinMode (alarm_nc_pin, INPUT_PULLUP);
+  pinMode(LED, OUTPUT);
+  pinMode(alarm_no_pin, INPUT_PULLUP);
+  pinMode(alarm_nc_pin, INPUT_PULLUP);
   dallas.begin();
 
   // Get sensor addresses, store them and their strings
@@ -73,10 +77,6 @@ void setup() {
     }
   }
 
-  // test if we have more than allowed sensors attached
-  if (sensor_count < dallas.getDeviceCount()){
-    over_max_sensors = TRUE;
-  }
   join_array(temperature_array, sensor_count,
                temperatures, MAX_PARTICLE_STR_LEN, temp_fmt, temp_fmt_ns);
   join_array(sensor_id_array, sensor_count,
@@ -93,8 +93,10 @@ void loop() {
  // Check the alarm
   if((digitalRead(alarm_nc_pin) == HIGH) or (digitalRead(alarm_no_pin) == LOW)) {
     alarm = TRUE;
+    digitalWrite(LED, HIGH);
   } else {
     alarm = FALSE;
+    digitalWrite(LED, LOW);
   }
 
   // Loop thorugh the temperature sensors and publish data from each
@@ -115,7 +117,7 @@ void loop() {
                  temperatures, MAX_PARTICLE_STR_LEN,
                  temp_fmt, temp_fmt_ns);
   }
-  delay(10000);
+  delay(5000);
 }
 
 template <class T>
