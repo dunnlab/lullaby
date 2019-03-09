@@ -18,6 +18,7 @@ double tempF = 0, tempC = 0, humidity = 0;
 
 
 // Use software SPI: CS, DI, DO, CLK
+// Pin labems are CS, SDI, SDO, SCK
 Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(6, 5, 4, 3);
 
 
@@ -35,6 +36,7 @@ void setup() {
 
 	dht.begin();
 
+	maxthermo.begin();
 	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
 }
 
