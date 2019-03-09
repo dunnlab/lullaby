@@ -1,4 +1,5 @@
 #include <Adafruit_DHT.h>
+#include <Adafruit_MAX31856.h>
 
 #define LED_PIN D7
 #define DHT_DATA_PIN 2
@@ -16,6 +17,10 @@ int led_on_state = 0;
 double tempF = 0, tempC = 0, humidity = 0;
 
 
+// Use software SPI: CS, DI, DO, CLK
+Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(6, 5, 4, 3);
+
+
 
 
 void setup() {
@@ -30,6 +35,7 @@ void setup() {
 
 	dht.begin();
 
+	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
 }
 
 void loop() {
@@ -72,6 +78,28 @@ void loop() {
 	Serial.print(" - HeatI: ");
 	Serial.print(hi);
 	Serial.println("°F");
+
+
+	Serial.print("Cold Junction Temp: ");
+    // Serial.println(maxthermo.readCJTemperature());
+    Particle.publish("CJTemp", String(maxthermo.readCJTemperature()), PRIVATE);
+
+    Serial.print("Thermocouple Temp: ");
+    // Serial.println(maxthermo.readThermocoupleTemperature());
+    Particle.publish("ThermoTemp", String(maxthermo.readThermocoupleTemperature()), PRIVATE);
+    // Check and print any faults
+    uint8_t fault = maxthermo.readFault();
+    if (fault) {
+        if (fault & MAX31856_FAULT_CJRANGE) Serial.println("Cold Junction Range Fault");
+        if (fault & MAX31856_FAULT_TCRANGE) Serial.println("Thermocouple Range Fault");
+        if (fault & MAX31856_FAULT_CJHIGH)  Serial.println("Cold Junction High Fault");
+        if (fault & MAX31856_FAULT_CJLOW)   Serial.println("Cold Junction Low Fault");
+        if (fault & MAX31856_FAULT_TCHIGH)  Serial.println("Thermocouple High Fault");
+        if (fault & MAX31856_FAULT_TCLOW)   Serial.println("Thermocouple Low Fault");
+        if (fault & MAX31856_FAULT_OVUV)    Serial.println("Over/Under Voltage Fault");
+        if (fault & MAX31856_FAULT_OPEN)    Serial.println("Thermocouple Open Fault");
+    }
+
 
 }
 
