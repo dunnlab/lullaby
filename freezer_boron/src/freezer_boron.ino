@@ -18,10 +18,9 @@ double tempF = 0, tempC = 0, humidity = 0;
 
 
 // Use software SPI: CS, DI, DO, CLK
-// Pin labems are CS, SDI, SDO, SCK
-Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(6, 5, 4, 3);
-
-
+// Pin labels are CS, SDI, SDO, SCK
+// formal labels: SS, MISO, MOSI, SCLK
+Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(A2, A4, A5, A3);
 
 
 void setup() {
