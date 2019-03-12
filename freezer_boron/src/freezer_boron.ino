@@ -30,6 +30,8 @@ double temp_amb = 0;
 double humid_amb = 0;
 bool equip_alarm = FALSE;
 bool equip_alarm_new = FALSE;
+FuelGauge fuel;
+double batt_percent = 0;
 
 // Use software SPI: CS, DI, DO, CLK
 // Pin labels are CS, SDI, SDO, SCK
@@ -48,6 +50,7 @@ void setup() {
 	Particle.variable( "temp_amb", &temp_amb, DOUBLE );
 	Particle.variable( "humid_amb", &humid_amb, DOUBLE );
 	Particle.variable( "equip_alarm", &equip_alarm, BOOLEAN );
+	Particle.variable( "batt_percent", &batt_percent, DOUBLE );
 
 	pinMode( LED_PIN, OUTPUT );
 
@@ -71,6 +74,9 @@ void loop() {
 
 	// DHT22 max read time is 0.5Hz
 	delay(60000);
+
+	batt_percent = fuel.getSoC();
+	Particle.publish("batt_percent", String(batt_percent), PRIVATE);
 
 	// Read DHT data
 	// Reading temperature or humidity takes about 250 milliseconds
@@ -103,5 +109,23 @@ void loop() {
 		if (fault & MAX31856_FAULT_OVUV)    Particle.publish("FAULT_Thermo", "Over/Under Voltage Fault");
 		if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault");
 	}
+
+	// Check equipment alarms
+	// Check the alarm
+	if( (digitalRead(ALARM_NC_PIN) == HIGH) or (digitalRead(ALARM_NO_PIN) == LOW) )
+	{
+		equip_alarm_new = TRUE;
+	}
+	else
+	{
+		equip_alarm_new = FALSE;
+	}
+
+	if( equip_alarm != equip_alarm_new ){
+		equip_alarm = equip_alarm_new;
+		Particle.publish("new_equip_alarm", String(equip_alarm));
+	}
+
+	Particle.publish("equip_alarm", String(equip_alarm), PRIVATE);
 
 }
