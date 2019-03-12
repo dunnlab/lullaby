@@ -1,8 +1,18 @@
 #include <Adafruit_DHT.h>
 #include <Adafruit_MAX31856.h>
 
+#define ALARM_NO_PIN A0
+#define ALARM_NC_PIN A1
+#define SPI_SS_MAX31856 A2
+#define SPI_SCLK A3
+#define SPI_MISO A4
+#define SPI_MOSI A5
+
+
+#define DHT_DATA_PIN D2
 #define LED_PIN D7
-#define DHT_DATA_PIN 2
+
+
 
 // DHT TYPES
 //#define DHT_TYPE DHT11	// DHT 11
@@ -13,28 +23,41 @@
 DHT dht(DHT_DATA_PIN, DHT_DEVICE_TYPE);
 int led_on_state = 0;
 
-// public variables (for curling)
-double tempF = 0, tempC = 0, humidity = 0;
-
+// public variables
+double temp_tc = 0;
+double temp_tc_cj = 0;
+double temp_amb = 0;
+double humid_amb = 0;
+bool equip_alarm = FALSE;
+bool equip_alarm_new = FALSE;
 
 // Use software SPI: CS, DI, DO, CLK
 // Pin labels are CS, SDI, SDO, SCK
 // formal labels: SS, MISO, MOSI, SCLK
-Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(A2, A4, A5, A3);
+Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(
+	SPI_SS_MAX31856,
+	SPI_MISO,
+	SPI_MOSI,
+	SPI_SCLK );
 
 
 void setup() {
 
-	Particle.variable("tempF", tempF);
-	Particle.variable("tempC", tempC);
-	Particle.variable("humidity", humidity);
+	Particle.variable( "temp_tc", &temp_tc, DOUBLE );
+	Particle.variable( "temp_tc_cj", &temp_tc_cj, DOUBLE );
+	Particle.variable( "temp_amb", &temp_amb, DOUBLE );
+	Particle.variable( "humid_amb", &humid_amb, DOUBLE );
+	Particle.variable( "equip_alarm", &equip_alarm, BOOLEAN );
 
-	pinMode(LED_PIN, OUTPUT);
+	pinMode( LED_PIN, OUTPUT );
 
-	Serial.begin(9600);
+	pinMode( ALARM_NO_PIN, INPUT_PULLUP );
+	pinMode( ALARM_NC_PIN, INPUT_PULLUP );
 
+	Serial.begin( 9600 );
+
+	// Start sensors
 	dht.begin();
-
 	maxthermo.begin();
 	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
 }
@@ -49,45 +72,25 @@ void loop() {
 	// DHT22 max read time is 0.5Hz
 	delay(60000);
 
+	// Read DHT data
 	// Reading temperature or humidity takes about 250 milliseconds
-	humidity = dht.getHumidity();
-	tempC = dht.getTempCelcius();
-	tempF = dht.getTempFarenheit();
+	humid_amb = dht.getHumidity();
+	temp_amb = dht.getTempCelcius();
 
-	// Check if any reads failed and exit early
-	if (isnan(humidity) || isnan(tempC) || isnan(tempF)) {
+	// Check if any reads failed
+	if (isnan(humid_amb) || isnan(temp_amb)) {
 		Particle.publish("FAULT_DHT", "Failed to read from DHT sensor!");
-		return;
 	}
 
-	float hi = c2f(dht.getHeatIndex());
-	//float dp = dht.getDewPoint();
-	//float k = dht.getTempKelvin();
+	Particle.publish("humid_amb", String(humid_amb), PRIVATE);
+	Particle.publish("temp_amb", String(temp_amb), PRIVATE);
 
-	Particle.publish("Humidity", String(humidity), PRIVATE);
-	Particle.publish("TempC", String(tempC), PRIVATE);
+	// Read thermocouple data
+	temp_tc = maxthermo.readThermocoupleTemperature();
+	temp_tc_cj = maxthermo.readCJTemperature();
 
-	Serial.print(Time.timeStr());
-	Serial.print("- Humid: ");
-	Serial.print(humidity);
-	Serial.print("% - ");
-	Serial.print("Temp: ");
-	Serial.print(tempF);
-	Serial.print("°F / ");
-	Serial.print(tempC);
-	Serial.print("°C ");
-	Serial.print(" - HeatI: ");
-	Serial.print(hi);
-	Serial.println("°F");
-
-
-	Serial.print("Cold Junction Temp: ");
-	// Serial.println(maxthermo.readCJTemperature());
-	Particle.publish("CJTemp", String(maxthermo.readCJTemperature()), PRIVATE);
-
-	Serial.print("Thermocouple Temp: ");
-	// Serial.println(maxthermo.readThermocoupleTemperature());
-	Particle.publish("ThermoTemp", String(maxthermo.readThermocoupleTemperature()), PRIVATE);
+	Particle.publish("temp_tc", String(temp_tc), PRIVATE);
+	Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
 	// Check and print any faults
 	uint8_t fault = maxthermo.readFault();
 	if (fault) {
@@ -101,11 +104,4 @@ void loop() {
 		if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault");
 	}
 
-
-}
-
-// celcius to fahrenheit
-float c2f(float c)
-{
-	return 1.8 * c + 32;
 }
