@@ -75,43 +75,7 @@ void loop() {
 	// DHT22 max read time is 0.5Hz
 	delay(60000);
 
-	batt_percent = fuel.getSoC();
-	Particle.publish("batt_percent", String(batt_percent), PRIVATE);
-
-	// Read DHT data
-	// Reading temperature or humidity takes about 250 milliseconds
-	humid_amb = dht.getHumidity();
-	temp_amb = dht.getTempCelcius();
-
-	// Check if any reads failed
-	if (isnan(humid_amb) || isnan(temp_amb)) {
-		Particle.publish("FAULT_DHT", "Failed to read from DHT sensor!");
-	}
-
-	Particle.publish("humid_amb", String(humid_amb), PRIVATE);
-	Particle.publish("temp_amb", String(temp_amb), PRIVATE);
-
-	// Read thermocouple data
-	temp_tc = maxthermo.readThermocoupleTemperature();
-	temp_tc_cj = maxthermo.readCJTemperature();
-
-	Particle.publish("temp_tc", String(temp_tc), PRIVATE);
-	Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
-	// Check and print any faults
-	uint8_t fault = maxthermo.readFault();
-	if (fault) {
-		if (fault & MAX31856_FAULT_CJRANGE) Particle.publish("FAULT_Thermo", "Cold Junction Range Fault");
-		if (fault & MAX31856_FAULT_TCRANGE) Particle.publish("FAULT_Thermo", "Thermocouple Range Fault");
-		if (fault & MAX31856_FAULT_CJHIGH)  Particle.publish("FAULT_Thermo", "Cold Junction High Fault");
-		if (fault & MAX31856_FAULT_CJLOW)   Particle.publish("FAULT_Thermo", "Cold Junction Low Fault");
-		if (fault & MAX31856_FAULT_TCHIGH)  Particle.publish("FAULT_Thermo", "Thermocouple High Fault");
-		if (fault & MAX31856_FAULT_TCLOW)   Particle.publish("FAULT_Thermo", "Thermocouple Low Fault");
-		if (fault & MAX31856_FAULT_OVUV)    Particle.publish("FAULT_Thermo", "Over/Under Voltage Fault");
-		if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault");
-	}
-
 	// Check equipment alarms
-	// Check the alarm
 	if( (digitalRead(ALARM_NC_PIN) == HIGH) or (digitalRead(ALARM_NO_PIN) == LOW) )
 	{
 		equip_alarm_new = TRUE;
@@ -126,6 +90,44 @@ void loop() {
 		Particle.publish("new_equip_alarm", String(equip_alarm));
 	}
 
-	Particle.publish("equip_alarm", String(equip_alarm), PRIVATE);
+	// Particle.publish("equip_alarm", String(equip_alarm), PRIVATE);
+
+
+	batt_percent = fuel.getSoC();
+	Particle.publish("batt_percent", String(batt_percent), PRIVATE);
+
+	// Read DHT data
+	// Reading temperature or humidity takes about 250 milliseconds
+	humid_amb = dht.getHumidity();
+	temp_amb = dht.getTempCelcius();
+
+	// Check if any reads failed
+	if (isnan(humid_amb) || isnan(temp_amb)) {
+		Particle.publish("FAULT_DHT", "Failed to read from DHT sensor!");
+	}
+
+	// Particle.publish("humid_amb", String(humid_amb), PRIVATE);
+	// Particle.publish("temp_amb", String(temp_amb), PRIVATE);
+
+	// Read thermocouple data
+	temp_tc = maxthermo.readThermocoupleTemperature();
+	temp_tc_cj = maxthermo.readCJTemperature();
+
+	// Particle.publish("temp_tc", String(temp_tc), PRIVATE);
+	// Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
+	// Check and print any faults
+	uint8_t fault = maxthermo.readFault();
+	if (fault) {
+		if (fault & MAX31856_FAULT_CJRANGE) Particle.publish("FAULT_Thermo", "Cold Junction Range Fault");
+		if (fault & MAX31856_FAULT_TCRANGE) Particle.publish("FAULT_Thermo", "Thermocouple Range Fault");
+		if (fault & MAX31856_FAULT_CJHIGH)  Particle.publish("FAULT_Thermo", "Cold Junction High Fault");
+		if (fault & MAX31856_FAULT_CJLOW)   Particle.publish("FAULT_Thermo", "Cold Junction Low Fault");
+		if (fault & MAX31856_FAULT_TCHIGH)  Particle.publish("FAULT_Thermo", "Thermocouple High Fault");
+		if (fault & MAX31856_FAULT_TCLOW)   Particle.publish("FAULT_Thermo", "Thermocouple Low Fault");
+		if (fault & MAX31856_FAULT_OVUV)    Particle.publish("FAULT_Thermo", "Over/Under Voltage Fault");
+		if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault");
+	}
+
+
 
 }
