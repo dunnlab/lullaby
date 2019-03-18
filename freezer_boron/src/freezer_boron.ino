@@ -1,5 +1,11 @@
-#include <Adafruit_DHT.h>
+
+// With some code derived from:
+// https://build.particle.io/shared_apps/5a1d9e5310c40e5c02001232
+
 #include <Adafruit_MAX31856.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define ALARM_NO_PIN A0
 #define ALARM_NC_PIN A1
@@ -17,15 +23,10 @@
 #define ONE_WIRE D6
 #define LED_PIN D7
 
-
-
-// DHT TYPES
-//#define DHT_TYPE DHT11	// DHT 11
-#define DHT_DEVICE_TYPE DHT22		// DHT 22 (AM2302)
-//#define DHT_TYPE DHT21    // DHT 21 (AM2301)
+const unsigned long UPDATE_PERIOD_MS = 5000;
+unsigned long lastUpdate = 0;
 
 // internal variables
-DHT dht(DHT_DATA_PIN, DHT_DEVICE_TYPE);
 int led_on_state = 0;
 
 // public variables
@@ -58,8 +59,9 @@ bool amb_t_alarm_last = FALSE;
 bool amb_h_alarm = FALSE;
 bool amb_h_alarm_last = FALSE;
 
-bool fault_dht = FALSE;
+bool fault_bme = FALSE;
 bool fault_thermocouple = FALSE;
+bool BMEsensorReady = FALSE;
 
 
 // Use software SPI: CS, DI, DO, CLK
@@ -70,6 +72,15 @@ Adafruit_MAX31856 maxthermo = Adafruit_MAX31856(
 	SPI_MISO,
 	SPI_MOSI,
 	SPI_SCLK );
+
+Adafruit_BME280 bme; // I2C
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET    -1 // Reset pin # (1 if sharing Arduino reset pin)
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,OLED_RESET);
+Adafruit_SSD1306 display(OLED_RESET);
+//char buf[64];
 
 
 void setup() {
@@ -86,7 +97,8 @@ void setup() {
 	Particle.variable( "low_t_alarm", &low_t_alarm, BOOLEAN );
 	Particle.variable( "amb_t_alarm", &amb_t_alarm, BOOLEAN );
 	Particle.variable( "amb_h_alarm", &amb_h_alarm, BOOLEAN );
-
+	Particle.variable( "fault_bme", &fault_bme, BOOLEAN );
+	Particle.variable( "fault_tc", &fault_thermocouple, BOOLEAN );
 
 	pinMode( LED_PIN, OUTPUT );
 
@@ -133,179 +145,201 @@ void setup() {
 
 	// Start sensors
 	pmic.begin();
-	dht.begin();
 	maxthermo.begin();
 	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
+	BMEsensorReady = bme.begin();
+
+	// Display
+	display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
 }
 
 void loop() {
+	if (millis() - lastUpdate >= UPDATE_PERIOD_MS) {
+		// alternate the LED_PIN between high and low
+		// to show that we're still alive
+		digitalWrite(LED_PIN, (led_on_state) ? HIGH : LOW);
+		led_on_state = !led_on_state;
 
-	// alternate the LED_PIN between high and low
-	// to show that we're still alive
-	digitalWrite(LED_PIN, (led_on_state) ? HIGH : LOW);
-	led_on_state = !led_on_state;
 
-	// DHT22 max read time is 0.5Hz
-	delay(10000);
-
-	// Check equipment alarms
-	if( (digitalRead(ALARM_NC_PIN) == HIGH) or (digitalRead(ALARM_NO_PIN) == LOW) )
-	{
-		equip_alarm = TRUE;
-	}
-	else
-	{
-		equip_alarm = FALSE;
-	}
-
-	if( equip_alarm != equip_alarm_last ){
-		equip_alarm_last = equip_alarm;
-		if ( equip_alarm ){
-			Particle.publish("ALARM_EQIP", "ALARM: Equipment in alarm!!!", PRIVATE);
+		// Check equipment alarms
+		if( (digitalRead(ALARM_NC_PIN) == HIGH) or (digitalRead(ALARM_NO_PIN) == LOW) )
+		{
+			equip_alarm = TRUE;
 		}
 		else
 		{
-			Particle.publish("ALARM_EQIP", "CLEAR: Equipment alarm stopped.", PRIVATE);
+			equip_alarm = FALSE;
 		}
 
-	}
+		if( equip_alarm != equip_alarm_last ){
+			equip_alarm_last = equip_alarm;
+			if ( equip_alarm ){
+				Particle.publish("ALARM_EQIP", "ALARM: Equipment in alarm!!!", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_EQIP", "CLEAR: Equipment alarm stopped.", PRIVATE);
+			}
 
-	// Particle.publish("equip_alarm", String(equip_alarm), PRIVATE);
-
-	// Power state
-	batt_percent = fuel.getSoC();
-	// Particle.publish("batt_percent", String(batt_percent), PRIVATE);
-
-	usb_power = isUsbPowered();
-	//Particle.publish("usb_power", String(usb_power), PRIVATE);
-	//Particle.publish("byte_power", String(pmic.getSystemStatus()), PRIVATE);
-
-	if (usb_power != usb_power_last) {
-		if (usb_power){
-			Particle.publish("ALARM_POWER", "CLEAR: Monitor external power restored.", PRIVATE);
 		}
-		else
-		{
-			Particle.publish("ALARM_POWER", "ALARM: No monitor external power!!!", PRIVATE);
+
+		// Particle.publish("equip_alarm", String(equip_alarm), PRIVATE);
+
+		// Power state
+		batt_percent = fuel.getSoC();
+		// Particle.publish("batt_percent", String(batt_percent), PRIVATE);
+
+		usb_power = isUsbPowered();
+		//Particle.publish("usb_power", String(usb_power), PRIVATE);
+		//Particle.publish("byte_power", String(pmic.getSystemStatus()), PRIVATE);
+
+		if (usb_power != usb_power_last) {
+			if (usb_power){
+				Particle.publish("ALARM_POWER", "CLEAR: Monitor external power restored.", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_POWER", "ALARM: No monitor external power!!!", PRIVATE);
+			}
+			usb_power_last = usb_power;
 		}
-		usb_power_last = usb_power;
-	}
 
 
-	// Read DHT data
-	// Reading temperature or humidity takes about 250 milliseconds
-	humid_amb = dht.getHumidity();
-	delay(1000);
-	temp_amb = dht.getTempCelcius();
+		// Read Ambient data
+		// Reading temperature or humidity takes about 250 milliseconds
 
-	// Check if any reads failed
-	fault_dht = FALSE;
-	if (isnan(temp_amb)) {
-		Particle.publish("FAULT_DHT", "Failed to read from DHT sensor temperature.", PRIVATE);
-		fault_dht = TRUE;
-	}
+		temp_amb = bme.readTemperature(); // degrees C
+		humid_amb = bme.readHumidity(); // %
 
-	if (isnan(humid_amb)) {
-		Particle.publish("FAULT_DHT", "Failed to read from DHT sensor humidity.", PRIVATE);
-		fault_dht = TRUE;
-	}
 
-	// Particle.publish("humid_amb", String(humid_amb), PRIVATE);
-	// Particle.publish("temp_amb", String(temp_amb), PRIVATE);
-
-	// Read thermocouple data
-	temp_tc = maxthermo.readThermocoupleTemperature();
-	temp_tc_cj = maxthermo.readCJTemperature();
-
-	// Particle.publish("temp_tc", String(temp_tc), PRIVATE);
-	// Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
-	// Check and print any faults
-	fault_thermocouple = FALSE;
-	uint8_t fault = maxthermo.readFault();
-	if (fault) {
-		fault_thermocouple = TRUE;
-		if (fault & MAX31856_FAULT_CJRANGE) Particle.publish("FAULT_Thermo", "Cold Junction Range Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_TCRANGE) Particle.publish("FAULT_Thermo", "Thermocouple Range Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_CJHIGH)  Particle.publish("FAULT_Thermo", "Cold Junction High Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_CJLOW)   Particle.publish("FAULT_Thermo", "Cold Junction Low Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_TCHIGH)  Particle.publish("FAULT_Thermo", "Thermocouple High Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_TCLOW)   Particle.publish("FAULT_Thermo", "Thermocouple Low Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_OVUV)    Particle.publish("FAULT_Thermo", "Over/Under Voltage Fault", PRIVATE);
-		if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault", PRIVATE);
-	}
-
-	// Update temperature alarms
-	if ( (temp_tc < alarm_temp_min) && equip_spec && ! fault_thermocouple ){
-		low_t_alarm = TRUE;
-	} else{
-		low_t_alarm = FALSE;
-	}
-
-	if ( low_t_alarm != low_t_alarm_last ){
-		if (low_t_alarm){
-			Particle.publish("ALARM_TEMP", "ALARM: Internal temperature below minimum.", PRIVATE);
+		// Check if any reads failed
+		fault_bme = FALSE;
+		if (isnan(temp_amb)) {
+			Particle.publish("FAULT_BME", "Failed to read from DHT sensor temperature.", PRIVATE);
+			fault_bme = TRUE;
 		}
-		else
-		{
-			Particle.publish("ALARM_TEMP", "CLEAR: Internal temperature no longer below minimum.", PRIVATE);
+
+		if (isnan(humid_amb)) {
+			Particle.publish("FAULT_BME", "Failed to read from DHT sensor humidity.", PRIVATE);
+			fault_bme = TRUE;
 		}
-		low_t_alarm_last = low_t_alarm;
-	}
 
+		// Particle.publish("humid_amb", String(humid_amb), PRIVATE);
+		// Particle.publish("temp_amb", String(temp_amb), PRIVATE);
 
-	if ( (temp_tc > alarm_temp_max) && equip_spec && ! fault_thermocouple ){
-		high_t_alarm = TRUE;
-	} else{
-		high_t_alarm = FALSE;
-	}
+		// Read thermocouple data
+		temp_tc = maxthermo.readThermocoupleTemperature();
+		temp_tc_cj = maxthermo.readCJTemperature();
 
-	if ( high_t_alarm != high_t_alarm_last ){
-		if (high_t_alarm){
-			Particle.publish("ALARM_TEMP", "ALARM: Internal temperature above maximum.", PRIVATE);
+		// Particle.publish("temp_tc", String(temp_tc), PRIVATE);
+		// Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
+		// Check and print any faults
+		fault_thermocouple = FALSE;
+		uint8_t fault = maxthermo.readFault();
+		if (fault) {
+			fault_thermocouple = TRUE;
+			if (fault & MAX31856_FAULT_CJRANGE) Particle.publish("FAULT_Thermo", "Cold Junction Range Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_TCRANGE) Particle.publish("FAULT_Thermo", "Thermocouple Range Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_CJHIGH)  Particle.publish("FAULT_Thermo", "Cold Junction High Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_CJLOW)   Particle.publish("FAULT_Thermo", "Cold Junction Low Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_TCHIGH)  Particle.publish("FAULT_Thermo", "Thermocouple High Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_TCLOW)   Particle.publish("FAULT_Thermo", "Thermocouple Low Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_OVUV)    Particle.publish("FAULT_Thermo", "Over/Under Voltage Fault", PRIVATE);
+			if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault", PRIVATE);
 		}
-		else
-		{
-			Particle.publish("ALARM_TEMP", "CLEAR: Internal temperature no longer above maximum.", PRIVATE);
+
+		// Update temperature alarms
+		if ( (temp_tc < alarm_temp_min) && equip_spec && ! fault_thermocouple ){
+			low_t_alarm = TRUE;
+		} else{
+			low_t_alarm = FALSE;
 		}
-		high_t_alarm_last = high_t_alarm;
-	}
 
-
-	if ( (temp_amb > alarm_ambient_t_max) && ! fault_dht ){
-		amb_t_alarm = TRUE;
-	} else{
-		amb_t_alarm = FALSE;
-	}
-
-	if ( amb_t_alarm != amb_t_alarm_last ){
-		if (amb_t_alarm){
-			Particle.publish("ALARM_AMB", "ALARM: Ambient temperature above maximum.", PRIVATE);
+		if ( low_t_alarm != low_t_alarm_last ){
+			if (low_t_alarm){
+				Particle.publish("ALARM_TEMP", "ALARM: Internal temperature below minimum.", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_TEMP", "CLEAR: Internal temperature no longer below minimum.", PRIVATE);
+			}
+			low_t_alarm_last = low_t_alarm;
 		}
-		else
-		{
-			Particle.publish("ALARM_AMB", "CLEAR: Ambient temperature no longer above maximum.", PRIVATE);
+
+
+		if ( (temp_tc > alarm_temp_max) && equip_spec && ! fault_thermocouple ){
+			high_t_alarm = TRUE;
+		} else{
+			high_t_alarm = FALSE;
 		}
-		amb_t_alarm_last = amb_t_alarm;
-	}
 
-
-	if ( (humid_amb > alarm_ambient_h_max && ! fault_dht ) ){
-		amb_h_alarm = TRUE;
-	} else{
-		amb_h_alarm = FALSE;
-	}
-
-	if ( amb_h_alarm != amb_h_alarm_last ){
-		if (amb_t_alarm){
-			Particle.publish("ALARM_AMB", "ALARM: Ambient humidity above maximum.", PRIVATE);
+		if ( high_t_alarm != high_t_alarm_last ){
+			if (high_t_alarm){
+				Particle.publish("ALARM_TEMP", "ALARM: Internal temperature above maximum.", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_TEMP", "CLEAR: Internal temperature no longer above maximum.", PRIVATE);
+			}
+			high_t_alarm_last = high_t_alarm;
 		}
-		else
-		{
-			Particle.publish("ALARM_AMB", "CLEAR: Ambient humidity no longer above maximum.", PRIVATE);
-		}
-		amb_h_alarm_last = amb_h_alarm;
-	}
 
+
+		if ( (temp_amb > alarm_ambient_t_max) && ! fault_bme ){
+			amb_t_alarm = TRUE;
+		} else{
+			amb_t_alarm = FALSE;
+		}
+
+		if ( amb_t_alarm != amb_t_alarm_last ){
+			if (amb_t_alarm){
+				Particle.publish("ALARM_AMB", "ALARM: Ambient temperature above maximum.", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_AMB", "CLEAR: Ambient temperature no longer above maximum.", PRIVATE);
+			}
+			amb_t_alarm_last = amb_t_alarm;
+		}
+
+
+		if ( (humid_amb > alarm_ambient_h_max && ! fault_bme ) ){
+			amb_h_alarm = TRUE;
+		} else{
+			amb_h_alarm = FALSE;
+		}
+
+		if ( amb_h_alarm != amb_h_alarm_last ){
+			if (amb_t_alarm){
+				Particle.publish("ALARM_AMB", "ALARM: Ambient humidity above maximum.", PRIVATE);
+			}
+			else
+			{
+				Particle.publish("ALARM_AMB", "CLEAR: Ambient humidity no longer above maximum.", PRIVATE);
+			}
+			amb_h_alarm_last = amb_h_alarm;
+		}
+
+		display.clearDisplay();
+
+		if (!fault_thermocouple) {
+			display.setTextSize(1);
+			display.setTextColor(WHITE);
+			display.setCursor(0,0);
+			display.println(" GCBG DUMMY LOAD");
+		  display.println("       by");
+		  display.println(" Al Peter, AC8GY");
+		  display.println("Jack Purdum, W8TEE");
+		  display.display();
+			//snprintf(buf, sizeof(buf), "%.1f C", temp_tc);
+			//display.println(buf);
+
+		}
+		//display.display();
+
+
+
+	}
 }
 
 bool isUsbPowered() {
