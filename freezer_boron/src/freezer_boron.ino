@@ -28,11 +28,11 @@
 
 #define I2C_SDA D0
 #define I2C_SCL D1
-#define DHT_DATA_PIN D2
+#define DISPLAY_RESET D2
 #define JUMPER_A D3
 #define JUMPER_B D4
 #define JUMPER_C D5
-#define DISPLAY_RESET D6
+#define ONE_WIRE D6
 #define LED_PIN D7
 
 const unsigned long UPDATE_PERIOD_MS = 5000;
@@ -338,10 +338,12 @@ void loop() {
 			display.setTextSize(1);
 			display.setTextColor(WHITE);
 			display.setCursor(0,0);
-			display.println(" GCBG DUMMY LOAD");
-		  display.println("       by");
-		  display.println(" Al Peter, AC8GY");
-		  display.println("Jack Purdum, W8TEE");
+			display.println("");
+			display.println(String::format("Internal Temp: %.1f C", temp_tc));
+			display.println(String::format(" Ambient Temp: %.1f C", temp_amb));
+			display.println(String::format("Ambient Humid: %.0f %%", humid_amb));
+		  //display.println(" Ambient Temp: "); + String(temp_amb,1) + " C");
+		  display.println("");
 		  display.display();
 			//snprintf(buf, sizeof(buf), "%.1f C", temp_tc);
 			//display.println(buf);
@@ -353,6 +355,7 @@ void loop() {
 
 	}
 }
+
 
 bool isUsbPowered() {
 	byte systemStatus = pmic.getSystemStatus();
