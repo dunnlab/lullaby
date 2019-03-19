@@ -20,7 +20,7 @@
 #define JUMPER_A D3
 #define JUMPER_B D4
 #define JUMPER_C D5
-#define ONE_WIRE D6
+#define DISPLAY_RESET D6
 #define LED_PIN D7
 
 const unsigned long UPDATE_PERIOD_MS = 5000;
@@ -79,7 +79,7 @@ Adafruit_BME280 bme; // I2C
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET    -1 // Reset pin # (1 if sharing Arduino reset pin)
 //Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,OLED_RESET);
-Adafruit_SSD1306 display(OLED_RESET);
+Adafruit_SSD1306 display(128, 64, DISPLAY_RESET);
 //char buf[64];
 
 
