@@ -2,6 +2,18 @@
 // With some code derived from:
 // https://build.particle.io/shared_apps/5a1d9e5310c40e5c02001232
 
+// Hardware list - BOM
+// https://www.adafruit.com/product/938 Monochrome 1.3" 128x64 OLED graphic display
+//		- Solder jumpers to put it in i2c mode
+//
+// https://www.adafruit.com/product/2652 BME280 I2C or SPI Temperature Humidity Pressure Sensor[ID:2652]
+//
+// https://www.adafruit.com/product/3263 Universal Thermocouple Amplifier MAX31856
+//
+// https://store.particle.io/products/boron-lte Paticle Boron
+
+
+
 #include <Adafruit_MAX31856.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_GFX.h>
