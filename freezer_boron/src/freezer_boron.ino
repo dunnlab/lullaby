@@ -124,6 +124,7 @@ void setup() {
 	// Jumpers are used for settings. They are pulled HIGH, so adding a jumper
 	// gives a low
 
+	//											D3				D4				D5
 	// Nominal temp					JUMPER_A	JUMPER_B	JUMPER_C
 	// -70									HIGH			HIGH			HIGH
 	// -20									LOW				HIGH			HIGH
@@ -160,6 +161,10 @@ void setup() {
 	maxthermo.begin();
 	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
 	BMEsensorReady = bme.begin();
+
+	if ( ! BMEsensorReady ){
+		Particle.publish("FAULT_BME", "BME sensor is not ready", PRIVATE);
+	}
 
 	// Display
 	display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
