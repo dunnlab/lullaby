@@ -136,19 +136,19 @@ void setup() {
 		equip_spec = TRUE;
 	}
 
-	if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_A) == HIGH ){
+	if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_B) == HIGH ){
 		equip_t_nom = -70;
 		alarm_temp_min = -90.0;
 		alarm_temp_max = -60.0;
-	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_A) == HIGH ){
+	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_B) == HIGH ){
 		equip_t_nom = -20;
 		alarm_temp_min = -27.0;
 		alarm_temp_max = -13.0;
-	} else if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_A) == LOW ){
+	} else if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_B) == LOW ){
 		equip_t_nom = 4;
 		alarm_temp_min = 2;
 		alarm_temp_max = 8;
-	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_A) == LOW ){
+	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_B) == LOW ){
 		equip_t_nom = 16;
 		alarm_temp_min = 13;
 		alarm_temp_max = 20;
@@ -164,6 +164,7 @@ void setup() {
 
 	if ( ! BMEsensorReady ){
 		Particle.publish("FAULT_BME", "BME sensor is not ready", PRIVATE);
+		fault_bme = TRUE;
 	}
 
 	// Display
@@ -265,7 +266,7 @@ void loop() {
 			if (fault & MAX31856_FAULT_OPEN)    Particle.publish("FAULT_Thermo", "Thermocouple Open Fault", PRIVATE);
 		}
 
-		// Update temperature alarms
+		// Update sensor alarms
 		if ( (temp_tc < alarm_temp_min) && equip_spec && ! fault_thermocouple ){
 			low_t_alarm = TRUE;
 		} else{
@@ -337,29 +338,65 @@ void loop() {
 			amb_h_alarm_last = amb_h_alarm;
 		}
 
-		display.clearDisplay();
+		// Create a status summary for display. Shows only one status at a time,
+		// put higher priority items later in sequence so they overwrite
+		// lower priority items.
+		String monitor_status = "System is nominal";
 
-		if (!fault_thermocouple) {
-			display.setTextSize(1);
-			display.setTextColor(WHITE);
-			display.setCursor(0,0);
-			display.println("");
-			display.println(String::format("Internal Temp: %.1f C", temp_tc));
-			display.println(String::format(" Ambient Temp: %.1f C", temp_amb));
-			display.println(String::format("Ambient Humid: %.0f %%", humid_amb));
-		  //display.println(" Ambient Temp: "); + String(temp_amb,1) + " C");
-		  display.println("");
-		  display.display();
-			//snprintf(buf, sizeof(buf), "%.1f C", temp_tc);
-			//display.println(buf);
-
+		if (fault_bme){
+			monitor_status =          "FAULT: Ambient sensor";
 		}
-		//display.display();
 
+		if (fault_thermocouple){
+			monitor_status =          "FAULT: Thermocouple";
+		}
 
+		if ( abs( temp_tc_cj - temp_amb  ) > 3 ){
+			monitor_status =          "WARN: Temp mismatch";
+		}
+
+		if ( amb_h_alarm ){
+			monitor_status =          "ALARM: Ambient humid";
+		}
+
+		if ( amb_t_alarm ){
+			monitor_status =          "ALARM: Ambient temp";
+		}
+
+		if ( ! usb_power ){
+			monitor_status =          "FAULT: No power";
+		}
+
+		if ( equip_alarm ){
+			monitor_status =          "ALARM: Equip. alarm";
+		}
+
+		if ( low_t_alarm ){
+			monitor_status =          "ALARM: Low temp";
+		}
+
+		if ( high_t_alarm ){
+			monitor_status =          "ALARM: High temp";
+		}
+
+		// Update display
+		display.clearDisplay();
+		// Size 1 has xx characters per row
+		display.setTextSize(1);
+		display.setTextColor(WHITE);
+		display.setCursor(0,0);
+		display.println("Dunn Lab Monitor");
+		display.println(monitor_status);
+		display.println(String::format("Internal Temp: %.1f C", temp_tc));
+		display.println(String::format(" Ambient Temp: %.1f C", temp_amb));
+		display.println(String::format("Ambient Humid: %.0f %%", humid_amb));
+		display.println("");
+		display.display();
 
 	}
 }
+
+
 
 
 bool isUsbPowered() {
