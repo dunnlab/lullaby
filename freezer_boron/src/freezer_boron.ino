@@ -17,6 +17,7 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <DiagnosticsHelperRK.h>
 
 #define ALARM_NO_PIN A0
 #define ALARM_NC_PIN A1
@@ -48,7 +49,6 @@ bool equip_alarm_last = FALSE;
 FuelGauge fuel;
 double batt_percent = 0;
 
-PMIC pmic;
 bool usb_power_last = FALSE;
 bool usb_power = TRUE;
 
@@ -143,7 +143,7 @@ void setup() {
 		alarm_temp_max = -13.0;
 	} else if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_B) == LOW ){
 		equip_t_nom = 4;
-		alarm_temp_min = 2;
+		alarm_temp_min = 1;
 		alarm_temp_max = 8;
 	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_B) == LOW ){
 		equip_t_nom = 16;
@@ -154,7 +154,6 @@ void setup() {
 	Serial.begin( 9600 );
 
 	// Start sensors
-	pmic.begin();
 	maxthermo.begin();
 	maxthermo.setThermocoupleType(MAX31856_TCTYPE_K);
 	BMEsensorReady = bme.begin();
@@ -166,6 +165,10 @@ void setup() {
 
 	// Display
 	display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
+
+	// Print power Status
+	Particle.publish("Power_stat", String(DiagnosticsHelper::getValue(DIAG_ID_SYSTEM_POWER_SOURCE)), PRIVATE);
+
 }
 
 void loop() {
@@ -379,10 +382,13 @@ void loop() {
 		display.setCursor(0,0);
 		display.println("Dunn Lab Monitor");
 		display.println(monitor_status);
-		display.println(String::format("Internal Temp: %.1f C", temp_tc));
 		display.println(String::format(" Ambient Temp: %.1f C", temp_amb));
 		display.println(String::format("Ambient Humid: %.0f %%", humid_amb));
+		display.println("Internal Temp:");
 		display.println("");
+		display.setTextSize(2);
+		display.println(String::format(" %.1f C", temp_tc));
+
 		display.display();
 
 	}
@@ -392,8 +398,14 @@ void loop() {
 
 
 bool isUsbPowered() {
-	byte systemStatus = pmic.getSystemStatus();
-	// observed states when charging include 36, 52, and 180, all of which have
-	// bits 32 and 4 high. That corresponds to hex 0x24
-	return ((systemStatus & 0x24) == 0x24);
+	// builds on https://community.particle.io/t/boron-battery-connected/47789/9
+	int powerSource = DiagnosticsHelper::getValue(DIAG_ID_SYSTEM_POWER_SOURCE);
+
+	if ( (powerSource == 5) || (powerSource == 0) ){
+		return( FALSE );
+	}
+	else{
+		return( TRUE );
+	}
+
 }
