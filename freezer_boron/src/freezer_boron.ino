@@ -13,7 +13,6 @@
 // https://store.particle.io/products/boron-lte Paticle Boron
 
 
-
 #include <Adafruit_MAX31856.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_GFX.h>
@@ -35,13 +34,11 @@
 #define ONE_WIRE D6
 #define LED_PIN D7
 
+// public variables
 const unsigned long UPDATE_PERIOD_MS = 5000;
 unsigned long lastUpdate = 0;
-
-// internal variables
 int led_on_state = 0;
 
-// public variables
 double temp_tc = 0;
 double temp_tc_cj = 0;
 double temp_amb = 0;
@@ -242,15 +239,10 @@ void loop() {
 			fault_bme = TRUE;
 		}
 
-		// Particle.publish("humid_amb", String(humid_amb), PRIVATE);
-		// Particle.publish("temp_amb", String(temp_amb), PRIVATE);
-
 		// Read thermocouple data
 		temp_tc = maxthermo.readThermocoupleTemperature();
 		temp_tc_cj = maxthermo.readCJTemperature();
 
-		// Particle.publish("temp_tc", String(temp_tc), PRIVATE);
-		// Particle.publish("temp_tc_cj", String(temp_tc_cj), PRIVATE);
 		// Check and print any faults
 		fault_thermocouple = FALSE;
 		uint8_t fault = maxthermo.readFault();
