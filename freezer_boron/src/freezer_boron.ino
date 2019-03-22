@@ -40,6 +40,12 @@ const unsigned long UPDATE_PERIOD_MS = 5000;
 unsigned long lastUpdate = 0;
 int led_on_state = 0;
 
+// Define board type
+// 0 Unknown
+// 1 Boron
+// 2 Not Boron
+int board_type = 0;
+
 double temp_tc = 0;
 double temp_tc_cj = 0;
 double temp_amb = 0;
@@ -166,8 +172,24 @@ void setup() {
 	// Display
 	display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
 
-	// Print power Status
+	// Publish some hardware stuff
+	#if (PLATFORM_ID == PLATFORM_BORON)
+
 	Particle.publish("Power_stat", String(DiagnosticsHelper::getValue(DIAG_ID_SYSTEM_POWER_SOURCE)), PRIVATE);
+	board_type = 1;
+
+	#else
+	pinMode(PWR, INPUT);
+	Particle.publish("Power_CHG", String(digitalRead(CHG)), PRIVATE);
+	Particle.publish("Power_PWR", String(digitalRead(PWR)), PRIVATE);
+	board_type = 2;
+
+	#endif
+
+	Particle.publish("BOARD", String(board_type), PRIVATE);
+
+
+
 
 }
 
@@ -337,6 +359,7 @@ void loop() {
 		// put higher priority items later in sequence so they overwrite
 		// lower priority items.
 		String monitor_status = "System is nominal";
+		bool nominal = TRUE;
 
 		if (fault_bme){
 			monitor_status =          "FAULT: Ambient sensor";
@@ -374,20 +397,24 @@ void loop() {
 			monitor_status =          "ALARM: High temp";
 		}
 
+		if ( monitor_status != "System is nominal" ){
+			nominal = FALSE;
+		}
+
 		// Update display
 		display.clearDisplay();
 		// Size 1 has xx characters per row
 		display.setTextSize(1);
 		display.setTextColor(WHITE);
+		display.invertDisplay(! nominal);
 		display.setCursor(0,0);
-		display.println("Dunn Lab Monitor");
 		display.println(monitor_status);
-		display.println(String::format(" Ambient Temp: %.1f C", temp_amb));
+		display.println(String::format("Ambient  Temp: %.1f C", temp_amb));
 		display.println(String::format("Ambient Humid: %.0f %%", humid_amb));
 		display.println("Internal Temp:");
 		display.println("");
-		display.setTextSize(2);
-		display.println(String::format(" %.1f C", temp_tc));
+		display.setTextSize(3);
+		display.println(String::format("%.1f C", temp_tc));
 
 		display.display();
 
@@ -395,7 +422,12 @@ void loop() {
 }
 
 
+// Xenon and Boron do power management and status checks differently
+// Use conditional directives to pick thhe right approachh and compile time
+// See thread at https://community.particle.io/t/battery-charging-indicator-not-working/48345/5
 
+
+#if (PLATFORM_ID == PLATFORM_BORON)
 
 bool isUsbPowered() {
 	// builds on https://community.particle.io/t/boron-battery-connected/47789/9
@@ -409,3 +441,11 @@ bool isUsbPowered() {
 	}
 
 }
+
+#else
+
+bool isUsbPowered() {
+	return( digitalRead(PWR) == HIGH );
+}
+
+#endif
