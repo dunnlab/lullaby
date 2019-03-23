@@ -3,14 +3,20 @@
 // https://build.particle.io/shared_apps/5a1d9e5310c40e5c02001232
 
 // Hardware list - BOM
-// https://www.adafruit.com/product/938 Monochrome 1.3" 128x64 OLED graphic display
-//		- Solder jumpers to put it in i2c mode
-//
-// https://www.adafruit.com/product/2652 BME280 I2C or SPI Temperature Humidity Pressure Sensor[ID:2652]
-//
-// https://www.adafruit.com/product/3263 Universal Thermocouple Amplifier MAX31856
 //
 // https://store.particle.io/products/boron-lte Paticle Boron
+//
+// https://www.adafruit.com/product/938 Monochrome 1.3" 128x64 OLED graphic display
+//		- Solder jumpers to put it in i2c mode
+//		- Connect to i2c bus and DISPLAY_RESET
+//
+// https://www.adafruit.com/product/2652 BME280 I2C or SPI Temperature Humidity Pressure Sensor[ID:2652]
+// 		- Connect to SPI pins
+//
+// https://www.adafruit.com/product/3263 Universal Thermocouple Amplifier MAX31856
+// 		- Connect to i2c bus
+//
+
 
 
 #include <Adafruit_MAX31856.h>
@@ -29,11 +35,11 @@
 #define I2C_SDA D0
 #define I2C_SCL D1
 #define DISPLAY_RESET D2
-#define JUMPER_A D3
-#define JUMPER_B D4
-#define JUMPER_C D5
-#define ONE_WIRE D6
-#define LED_PIN D7
+#define BUTTON_DISPLAY D3
+#define BUTTON_FUNCTION D4
+#define ONE_WIRE D5
+#define LED_A D6
+#define LED_B D7
 
 // public variables
 const unsigned long UPDATE_PERIOD_MS = 5000;
@@ -59,16 +65,15 @@ bool usb_power_last = FALSE;
 bool usb_power = TRUE;
 
 bool equip_spec = FALSE;
-int equip_t_nom = -1000;
-double alarm_temp_min = -1000;
-double alarm_temp_max = 1000;
+double alarm_temp_min;
+double alarm_temp_max;
 bool low_t_alarm = FALSE;
 bool low_t_alarm_last = FALSE;
 bool high_t_alarm = FALSE;
 bool high_t_alarm_last = FALSE;
 
-double alarm_ambient_t_max = 30.0;
-double alarm_ambient_h_max = 75.0;
+float alarm_ambient_t_max = 30.0;
+float alarm_ambient_h_max = 75.0;
 bool amb_t_alarm = FALSE;
 bool amb_t_alarm_last = FALSE;
 bool amb_h_alarm = FALSE;
@@ -97,6 +102,12 @@ Adafruit_BME280 bme; // I2C
 Adafruit_SSD1306 display(128, 64, DISPLAY_RESET);
 //char buf[64];
 
+// EEPROM addresses
+int alarm_temp_min_address = 1;
+int alarm_temp_max_address = 5;
+
+
+
 
 void setup() {
 
@@ -108,54 +119,25 @@ void setup() {
 	Particle.variable( "batt_percent", &batt_percent, DOUBLE );
 	Particle.variable( "usb_power", &usb_power, BOOLEAN );
 	Particle.variable( "equip_spec", &equip_spec, BOOLEAN );
-	Particle.variable( "equip_t_nom", &equip_t_nom, INT );
 	Particle.variable( "low_t_alarm", &low_t_alarm, BOOLEAN );
 	Particle.variable( "amb_t_alarm", &amb_t_alarm, BOOLEAN );
 	Particle.variable( "amb_h_alarm", &amb_h_alarm, BOOLEAN );
 	Particle.variable( "fault_bme", &fault_bme, BOOLEAN );
-	Particle.variable( "fault_tc", &fault_thermocouple, BOOLEAN );
+	Particle.variable( "alarm_t_min", &alarm_temp_min, DOUBLE );
+	Particle.variable( "alarm_t_max", &alarm_temp_max, DOUBLE );
 
-	pinMode( LED_PIN, OUTPUT );
+	Particle.function("clear_eeprom", clear_eeprom);
+	Particle.function("SetAlarmTMax", write_alarm_temp_max);
+	Particle.function("SetAlarmTMin", write_alarm_temp_min);
+
+
+	pinMode( LED_B, OUTPUT );
 
 	pinMode( ALARM_NO_PIN, INPUT_PULLUP );
 	pinMode( ALARM_NC_PIN, INPUT_PULLUP );
 
-	pinMode( JUMPER_A, INPUT_PULLUP );
-	pinMode( JUMPER_B, INPUT_PULLUP );
-	pinMode( JUMPER_C, INPUT_PULLUP );
-
-	// Jumpers are used for settings. They are pulled HIGH, so adding a jumper
-	// gives a low
-
-	//											D3				D4				D5
-	// Nominal temp					JUMPER_A	JUMPER_B	JUMPER_C
-	// -70									HIGH			HIGH			HIGH
-	// -20									LOW				HIGH			HIGH
-	// 4										HIGH			LOW				HIGH
-	// 16										LOW 			LOW				HIGH
-	// No specification			NA				NA				LOW
-
-	if ( digitalRead( JUMPER_C) == HIGH ){
-		equip_spec = TRUE;
-	}
-
-	if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_B) == HIGH ){
-		equip_t_nom = -70;
-		alarm_temp_min = -90.0;
-		alarm_temp_max = -60.0;
-	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_B) == HIGH ){
-		equip_t_nom = -20;
-		alarm_temp_min = -27.0;
-		alarm_temp_max = -13.0;
-	} else if ( digitalRead( JUMPER_A) == HIGH && digitalRead( JUMPER_B) == LOW ){
-		equip_t_nom = 4;
-		alarm_temp_min = 1;
-		alarm_temp_max = 8;
-	} else if ( digitalRead( JUMPER_A) == LOW && digitalRead( JUMPER_B) == LOW ){
-		equip_t_nom = 16;
-		alarm_temp_min = 13;
-		alarm_temp_max = 20;
-	}
+	alarm_temp_min = read_eeprom_temp( alarm_temp_min_address, -1000 );
+	alarm_temp_max = read_eeprom_temp( alarm_temp_max_address, 1000 );
 
 	Serial.begin( 9600 );
 
@@ -195,9 +177,9 @@ void setup() {
 
 void loop() {
 	if (millis() - lastUpdate >= UPDATE_PERIOD_MS) {
-		// alternate the LED_PIN between high and low
+		// alternate the LED between high and low
 		// to show that we're still alive
-		digitalWrite(LED_PIN, (led_on_state) ? HIGH : LOW);
+		digitalWrite(LED_B, (led_on_state) ? HIGH : LOW);
 		led_on_state = !led_on_state;
 
 
@@ -420,6 +402,68 @@ void loop() {
 
 	}
 }
+
+
+// EEPROM handlers
+// These allow for non-volatile storage of board-specific settings
+// EEPROM that has not been written will have a value of 0xFFFFFFFF,
+// need to chehck for that and set a default value of EEPROM has not
+// been initialized.
+
+double read_eeprom_temp( int address, float default_temp ){
+	float temp_read = default_temp;
+	uint32_t temp_read_int;
+	EEPROM.get( address, temp_read_int );
+	if ( temp_read_int != 0xFFFFFFFF ){
+		EEPROM.get( address, temp_read );
+	}
+	// Stored as a float but used as a double so that it works with Particle.variable()
+	double temp_read_double = temp_read;
+	return (temp_read_double);
+}
+
+int write_alarm_temp_max ( String temp_string ) {
+	float temp = temp_string.toFloat();
+	float address = alarm_temp_max_address;
+	EEPROM.put( address, temp);
+
+	// Check the written value and load it into global variable
+	float written = read_eeprom_temp( address, -1000000 );
+	if ( abs( written - temp ) < 0.1 ){
+		// All is well
+		alarm_temp_max = written;
+		return( 0 );
+	}
+	else{
+		// There was a problem
+		return( 1 );
+	}
+}
+
+int write_alarm_temp_min ( String temp_string ) {
+	float temp = temp_string.toFloat();
+	float address = alarm_temp_min_address;
+	EEPROM.put( address, temp);
+
+	// Check the written value and load it into global variable
+	float written = read_eeprom_temp( address, -1000000 );
+	if ( abs( written - temp ) < 0.1 ){
+		// All is well
+		alarm_temp_min = written;
+		return( 0 );
+	}
+	else{
+		// There was a problem
+		return( 1 );
+	}
+}
+
+int clear_eeprom( String extra ){
+	EEPROM.clear();
+	return(0);
+}
+
+
 
 
 // Xenon and Boron do power management and status checks differently
