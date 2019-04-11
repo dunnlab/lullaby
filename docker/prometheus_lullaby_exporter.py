@@ -2,18 +2,32 @@
 import os
 import json
 import time
+import logging
+import requests
+import asyncio
 from collections import defaultdict
 from urllib.request import urlopen
 from prometheus_client import start_http_server
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
 
-def try_json_url_open(url):
-    result = defaultdict(lambda: "nan")
-    try:
+# set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+log = logging.getLogger()
+
+def try_json_url_open(url, tries=None, retries=10):
+    if tries=None:
+        current_tries = 0 
+    if tries < retries:
+        
         result = json.load(urlopen(url))
-    except Exception as e:
-        logging.warning(e)
-    return result
+        except Exception as e:
+            logging.warning((e, url))
+        return result
+    return None
 
 # api_key = 
 api_info = {}
