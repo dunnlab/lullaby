@@ -26,6 +26,14 @@ If you would like add additional files to your application, they should be added
 #### Projects with external libraries
 If your project includes a library that has not been registered in the Particle libraries system, you should create a new folder named `/lib/<libraryname>/src` under `/<project dir>` and add the `.h` and `.cpp` files for your library there. All contents of the `/lib` folder and subfolders will also be sent to the Cloud for compilation.
 
+## Setting up a device
+
+- Install particle CLI tools
+- plug in board and put in listening mode by holding mode until flashes blue-
+- run `particle serial mac` to get the mac address
+- add mac to registry
+- run `particle serial wifi --file credentials.json` to configure wifi
+
 ## Compiling your project
 
 When you're ready to compile your project, make sure you have the correct Particle device target selected and run `particle compile <platform>` in the CLI or click the Compile button in the Desktop IDE. The following files in your project folder will be sent to the compile service:
