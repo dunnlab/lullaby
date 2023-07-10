@@ -29,7 +29,8 @@ If your project includes a library that has not been registered in the Particle 
 ## Setting up a device
 
 - Install particle CLI tools
-- plug in board and put in listening mode by holding mode until flashes blue-
+- plug in board and put in listening mode by holding mode until flashes blue
+- run `particle update`
 - run `particle serial mac` to get the mac address
 - add mac to registry
 - run `particle serial wifi --file credentials.json` to configure wifi
@@ -41,3 +42,18 @@ When you're ready to compile your project, make sure you have the correct Partic
 - Everything in the `/src` folder, including your `.ino` application file
 - The `project.properties` file for your project
 - Any libraries stored under `lib/<libraryname>/src`
+
+Over the air flash:
+- `particle identify` to get id, must be in listening mode.
+
+Then:
+- `particle flash <id> .` to flash
+
+
+Serial flash:
+
+- `particle serial flash argon_firmware_1688761977134.bin` to flash (exact binary name will vary)
+
+
+Serial update and flash can be problematic, giving error `UsbError: IN control transfer failed`. In that case, connect to wifi first then do over the air flash.
+That will also update OS.
