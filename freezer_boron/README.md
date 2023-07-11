@@ -57,3 +57,13 @@ Serial flash:
 
 Serial update and flash can be problematic, giving error `UsbError: IN control transfer failed`. In that case, connect to wifi first then do over the air flash.
 That will also update OS.
+
+That looks like this:
+- Connect to serial, put in listening mode
+- Run `particle identify`
+- run `particle serial mac` to get the mac address
+- add mac to registry
+- run `particle serial wifi --file credentials.json` to configure wifi
+- device will restart and connect to wifi
+- run `particle flash <id> .` to flash over the air. This also updates OS. Can take a while.
+
